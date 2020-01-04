@@ -3,9 +3,7 @@ import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.font.TextAttribute;
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -21,8 +19,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -30,6 +28,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -57,8 +56,10 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 	private JLabel labelForCogIcon;
 	private static DollarConverterGUI ex;
 	private static boolean dateError;
-	private String oldDate;
-	private String newDate;
+    private Date oldDate;
+    private Date newDate;
+    private String oldInput;
+    private boolean shouldResetLabels = true;
 
 	private static UtilDateModel model;
 	private JDatePanelImpl datePanel;
@@ -86,20 +87,48 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 
 		textFieldCurrInput = new JTextField();
 		textFieldCurrInput.setBounds(10, 50, 90, 30);
+		
+		oldInput = textFieldCurrInput.getText();
+		
 		textFieldCurrInput.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void changedUpdate(DocumentEvent arg0) {
-				resetLabel();
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent arg0) {
-				resetLabel();
+				String newInput = textFieldCurrInput.getText();
+				if (Pattern.compile("^(\\d*)\\.?(\\d*)$").matcher(newInput).matches()) {
+					if (shouldResetLabels) {
+						resetLabel();
+						oldInput = newInput;
+					} else {
+						shouldResetLabels = true;
+						oldInput = newInput;
+					}
+				} else {
+					revertInput();
+				}
 			}
 
 			@Override
 			public void removeUpdate(DocumentEvent arg0) {
-				resetLabel();
+				String newInput = textFieldCurrInput.getText();
+				if(!newInput.equalsIgnoreCase("")) {
+					resetLabel();
+				} 
+				oldInput = newInput;
+				shouldResetLabels = false;
+			}
+
+			private void revertInput() {
+			    Runnable revertInput = new Runnable() {
+			        @Override
+			        public void run() {
+			        	textFieldCurrInput.setText(oldInput);
+			        }
+			    };       
+			    SwingUtilities.invokeLater(revertInput);
 			}
 		});
 
@@ -170,6 +199,23 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		datePanel = new JDatePanelImpl(model, p);
 		datePicker = new JDatePickerImpl(datePanel, new DateLabelFormatter());
 		datePicker.setBounds(40, 110, 135, 30);
+		
+        oldDate = model.getValue(); // init to selected date
+		datePicker.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newDate = model.getValue();
+				if( newDate.after(new Date()) ) { // check if greater than today's date
+//					JOptionPane.showMessageDialog(null, "We cannot predict future rates so do not select future dates");
+					// revert datePanel to old date which will auto update the datePicker textField
+					model.setValue(oldDate);
+					oldDate = model.getValue();
+				} else if(!newDate.equals(oldDate)) {
+					resetLabel();
+					oldDate = newDate; // assign newDate to oldDate
+				}
+			}
+		});
 	}
 
 	public void addUI() {
@@ -223,7 +269,9 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		try {
 			getCurrencyData();
 			if (isNumeric(textFieldCurrInput.getText())) {
-				String currVal = calculatedExchangeRate();
+				double currValue = Double.valueOf(calculatedExchangeRate()) * Double.valueOf(textFieldCurrInput.getText());
+				DecimalFormat df = new DecimalFormat("0.00");
+				String currVal = df.format(currValue);
 				if (!dateError) {
 					textFieldCurrOutput.setText("" + currVal);
 					priorRates();
