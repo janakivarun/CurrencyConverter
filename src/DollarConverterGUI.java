@@ -258,7 +258,7 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		getContentPane().add(labelForCogIcon);
 		getContentPane().add(datePicker);
 
-		setTitle("Optimus Currency Converter App");
+		setTitle("Optimus Currency Converter");
 		setSize(550, 290);
 		setResizable(false);
 		setLocationRelativeTo(null);
