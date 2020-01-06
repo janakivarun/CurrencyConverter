@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -30,6 +31,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -57,8 +59,10 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 	private JLabel labelForCogIcon;
 	private static DollarConverterGUI ex;
 	private static boolean dateError;
-	private String oldDate;
-	private String newDate;
+	private Date oldDate;
+	private Date newDate;
+	private String oldInput;
+	private boolean shouldResetTextFieldCurrInput = true;
 
 	private static UtilDateModel model;
 	private JDatePanelImpl datePanel;
@@ -66,6 +70,7 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 
 	public static JSONObject jo = new JSONObject();
 	public static Object[] currencyList = new Object[33];
+	DecimalFormat df = new DecimalFormat("###.###");
 
 	public static void main(String[] args) throws Exception {
 		ex = new DollarConverterGUI();
@@ -86,20 +91,47 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 
 		textFieldCurrInput = new JTextField();
 		textFieldCurrInput.setBounds(10, 50, 90, 30);
+		oldInput = textFieldCurrInput.getText();
 		textFieldCurrInput.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void changedUpdate(DocumentEvent arg0) {
-				resetLabel();
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent arg0) {
-				resetLabel();
+				String newInput = textFieldCurrInput.getText();
+				String pattern = "^(\\d*)(\\.?)(\\d*)$";
+				if(Pattern.compile(pattern).matcher(textFieldCurrInput.getText()).matches()) {
+					if(shouldResetTextFieldCurrInput) {
+						resetLabel();
+						oldInput = newInput;
+					} else {
+						shouldResetTextFieldCurrInput = true;
+						oldInput = newInput;
+					}
+				} else {
+					revertInput();
+				}
 			}
 
 			@Override
 			public void removeUpdate(DocumentEvent arg0) {
-				resetLabel();
+				String newInput = textFieldCurrInput.getText();
+				if(!newInput.equalsIgnoreCase("")){
+					resetLabel();
+				}
+				oldInput = newInput;
+				shouldResetTextFieldCurrInput = false;
+			}
+			
+			public void revertInput() {
+				Runnable revertInput = new Runnable() {
+					@Override
+					public void run() {
+						textFieldCurrInput.setText(oldInput);
+					}
+				};
+				SwingUtilities.invokeLater(revertInput);
 			}
 		});
 
@@ -170,6 +202,21 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		datePanel = new JDatePanelImpl(model, p);
 		datePicker = new JDatePickerImpl(datePanel, new DateLabelFormatter());
 		datePicker.setBounds(40, 110, 135, 30);
+
+		oldDate = model.getValue();
+		
+		datePicker.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				newDate = model.getValue();
+				if (newDate.after(new Date())) {
+					model.setValue(oldDate);
+					oldDate = model.getValue();
+				} else if(!newDate.equals(oldDate)){
+					resetLabel();
+					oldDate = newDate;
+				}
+			}
+		});
 	}
 
 	public void addUI() {
@@ -218,12 +265,11 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		System.out.println(model.getValue());
 		resetLabel();
 		try {
 			getCurrencyData();
 			if (isNumeric(textFieldCurrInput.getText())) {
-				String currVal = calculatedExchangeRate();
+				String currVal = df.format(Double.valueOf(calculatedExchangeRate()) * Double.valueOf(textFieldCurrInput.getText()));
 				if (!dateError) {
 					textFieldCurrOutput.setText("" + currVal);
 					priorRates();
@@ -255,7 +301,6 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 			JOptionPane.showMessageDialog(ex, "We cannot predict future rates so do not select future dates");
 		} else {
 			String url = "https://api.exchangeratesapi.io/" + dateEntered + "?base=USD";
-			System.out.println("URL used to get rates" + url);
 
 			HttpURLConnection con = establishConnection(url);
 
@@ -278,7 +323,7 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		URL obj = new URL(url);
 		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
 		int responseCode = con.getResponseCode();
-		System.out.println("Connection responseCode: " + responseCode);
+//		System.out.println("Connection responseCode: " + responseCode);
 		return con;
 	}
 
@@ -343,7 +388,6 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 			outputCurrencyRate = jo.getJSONObject("rates").getDouble(outputCurrency);
 
 			double currValue = outputCurrencyRate / inputCurrencyRate;
-			DecimalFormat df = new DecimalFormat("###.###");
 			currVal = df.format(currValue);
 		} catch (JSONException e) {
 			e.printStackTrace();
