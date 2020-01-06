@@ -148,7 +148,8 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		labelCurrentRate.setBounds(237, 75, 100, 30);
 		labelCurrentRate.setForeground(Color.blue);
 
-		labelForCurrIcon = new JLabel(new ImageIcon("resources/dc.jpg"));
+		URL dcURL = DollarConverterGUI.class.getResource("/resources/dc.jpg");
+		labelForCurrIcon = new JLabel(new ImageIcon(dcURL));
 		labelForCurrIcon.setBounds(220, 100, 100, 100);
 
 		labelPriorRateHeading = new JLabel();
@@ -182,7 +183,8 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		labelICanCode.setText(
 				"<html><font color='blue'>{</font> i<font color='green'>C</font>an<font color='green'>C</font>ode <font color='blue'>}</font></html>");
 
-		labelForCogIcon = new JLabel(new ImageIcon("resources/cog.jpg"));
+		URL cogURL = DollarConverterGUI.class.getResource("/resources/cog.jpg");
+		labelForCogIcon = new JLabel(new ImageIcon(cogURL));
 		labelForCogIcon.setBounds(460, 180, 100, 100);
 
 		// DATE PICKER
@@ -256,7 +258,7 @@ public class DollarConverterGUI extends JFrame implements ActionListener {
 		getContentPane().add(labelForCogIcon);
 		getContentPane().add(datePicker);
 
-		setTitle("Varun's Currency Converter");
+		setTitle("Optimus Currency Converter");
 		setSize(550, 290);
 		setResizable(false);
 		setLocationRelativeTo(null);
